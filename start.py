@@ -72,25 +72,6 @@ def start_database():
         print(f"❌ Erreur lors du démarrage de PostgreSQL : {e}")
         return False
 
-def initialize_database():
-    """Initialise la base de données avec les tables et données"""
-    print("\n📊 Initialisation de la base de données...")
-    
-    try:
-        # Ajouter le dossier database au path
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'database'))
-        
-        from insert_initial_data import insert_initial_data
-        
-        insert_initial_data()
-        print("✅ Base de données initialisée avec succès")
-        return True
-        
-    except Exception as e:
-        print(f"⚠️ Erreur lors de l'initialisation : {e}")
-        print("💡 La base de données sera initialisée au premier lancement")
-        return True  # On continue quand même
-
 def start_streamlit():
     """Lance l'application Streamlit"""
     print("\n🚀 Lancement de l'application Streamlit...")

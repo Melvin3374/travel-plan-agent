@@ -55,6 +55,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Où souhaitez-vous voyager ? Décrivez votre voyage idéal..."):
+    prompt = prompt.replace("<", "&lt;").replace(">", "&gt;")
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)

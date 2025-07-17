@@ -1,10 +1,11 @@
-# Fichier : agent/travel_agent.py (version finale avec formatage explicite)
+# Fichier : agent/travel_agent.py (Version finale et stable)
 
 import os
 from dotenv import load_dotenv
 
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain.agents import AgentExecutor, create_react_agent
+from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate
@@ -16,66 +17,69 @@ load_dotenv()
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash-latest",
     google_api_key=os.getenv("GEMINI_API_KEY"),
-    temperature=0, # On met 0 pour que l'agent soit plus déterministe et suive mieux les instructions
+    temperature=0,
     convert_system_message_to_human=True
 )
 db = get_langchain_db()
+
+# 2. Création des outils
 toolkit = SQLDatabaseToolkit(db=db, llm=llm)
-tools = toolkit.get_tools()
+db_tools = toolkit.get_tools()
+search_tool = DuckDuckGoSearchRun(name="internet_search")
+tools = db_tools + [search_tool]
 
-# 2. PROMPT FINAL
+# 3. LE PROMPT FINAL ET ROBUSTE
 template = """
-Tu es un assistant de voyage IA expert et serviable. Tu dois répondre en français.
-Tu as accès aux outils suivants pour aider l'utilisateur :
+Tu es un assistant de voyage IA. Réponds en français. Tu as accès à des outils.
 
+Voici les outils que tu peux utiliser :
 {tools}
 
-Les noms des outils que tu peux utiliser sont : {tool_names}
+**Utilise le format EXACT suivant pour répondre :**
 
----
-**IMPORTANT : Pour utiliser un outil, tu dois utiliser le format EXACT suivant :**
+Thought: Tu dois toujours réfléchir à ce que tu vas faire.
+Action: L'action à entreprendre. Doit être l'un des outils suivants : [{tool_names}].
+Action Input: L'entrée pour l'action. Pour un outil qui ne nécessite pas d'entrée comme `sql_db_list_tables`, utilise deux guillemets vides comme ceci : "".
+Observation: Le résultat de l'action.
 
-Thought: La pensée de l'agent sur l'action à entreprendre.
-Action: Le nom de l'outil à utiliser, qui doit être l'un de [{tool_names}].
-Action Input: L'entrée pour l'outil.
-Observation: Le résultat de l'outil.
-
-**(Ce cycle Thought/Action/Action Input/Observation peut se répéter plusieurs fois)**
-
-Quand tu as assez d'informations pour répondre, utilise le format suivant :
+...(ce cycle Thought/Action/Action Input/Observation peut se répéter)...
 
 Thought: Je connais maintenant la réponse finale.
-Final Answer: La réponse finale et complète à la question initiale de l'utilisateur.
----
+Final Answer: La réponse finale et complète à la question de l'utilisateur.
 
-Maintenant, commence !
+**Instructions importantes :**
+1. Pour les questions sur les voyages, consulte TOUJOURS la base de données en premier avec les outils `sql_db_...`.
+2. Si la base de données ne renvoie rien d'utile, utilise `internet_search`.
+
+Commençons !
 
 Historique de la conversation :
 {chat_history}
 
-Question de l'utilisateur : {input}
-Ta réflexion et tes actions (scratchpad) :
+Question : {input}
+Scratchpad :
 {agent_scratchpad}
 """
 
 prompt = ChatPromptTemplate.from_template(template)
 
-# 4. Création de la mémoire
+# --- Le reste du fichier ne change pas ---
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-# 5. Création de l'agent
 agent = create_react_agent(llm, tools, prompt)
-
-# 6. Création de l'Exécuteur de l'Agent
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
     memory=memory,
     verbose=True,
-    handle_parsing_errors=True # Très utile pour gérer les petites erreurs de formatage
+    max_iterations=8, # On augmente un peu pour lui laisser le temps de se corriger
+    handle_parsing_errors=True
 )
 
-# 7. Fonction d'interaction principale
 def get_response(user_input: str) -> str:
-    response = agent_executor.invoke({"input": user_input})
-    return response.get("output", "Désolé, je n'ai pas pu traiter votre demande.")
+    try:
+        response = agent_executor.invoke({"input": user_input})
+        return response.get("output", "Désolé, une erreur est survenue.")
+    except Exception as e:
+        # Gérer les erreurs de manière plus gracieuse
+        print(f"Erreur dans l'AgentExecutor : {e}")
+        return "Je suis désolé, je rencontre une difficulté technique pour traiter votre demande. Pourriez-vous essayer de reformuler ?"
