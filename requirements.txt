@@ -1,26 +1,27 @@
-langchain
-openai
-chromadb
-faiss-cpu
-python-dotenv
-PyPDF2
-pypdf
-tiktoken
+# Fichier: requirements.txt (version minimale)
 streamlit
-huggingface-hub
-transformers
-duckduckgo-search
-pytest
-langchain_community
+langchain
+langchain-community
 langchain-google-genai
-langchain_huggingface
-fastapi 
-uvicorn
-requests
-sentence-transformers
-google-generativeai
+psycopg2-binary
+SQLAlchemy
 python-dotenv
-python-multipart
-pydantic
-firebase-admin
-fpdf2
+# python-multipart
+# google-generativeai
+# pydantic
+# firebase-admin
+
+# chromadb
+# faiss-cpu
+# PyPDF2
+# pypdf
+# tiktoken
+# huggingface-hub
+# transformers
+duckduckgo-search
+# pytest
+# langchain_huggingface
+# fastapi 
+# uvicorn
+# requests
+# sentence-transformers
