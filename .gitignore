@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+faiss_index/
+*.pdf
+*.dll
+*.lib
+.env
+firebase-service-account.json
