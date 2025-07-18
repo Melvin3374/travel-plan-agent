@@ -299,13 +299,22 @@ import json
 
 # --- FONCTION POUR LANGCHAIN (MODIFIÉE POUR psycopg) ---
 def get_langchain_db() -> SQLDatabase:
-    db_user = os.getenv("POSTGRES_USER")
-    db_password = os.getenv("POSTGRES_PASSWORD")
-    db_host = os.getenv("POSTGRES_HOST")
-    db_port = os.getenv("POSTGRES_PORT")
-    db_name = os.getenv("POSTGRES_DB")
-
-    # On change le pilote dans l'URL de connexion
-    db_uri = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
+    """
+    Crée la connexion à la base de données en lisant l'URL complète
+    depuis les variables d'environnement.
+    """
+    db_uri = os.getenv("DATABASE_URL")
     
+    if not db_uri:
+        raise ValueError("La variable d'environnement DATABASE_URL n'est pas définie !")
+    
+    # S'assurer que le mode SSL est bien requis
+    if "?sslmode" not in db_uri:
+        db_uri += "?sslmode=require"
+
+    # Remplacer le préfixe pour SQLAlchemy
+    # psycopg (le nouveau pilote) n'a pas besoin de +psycopg
+    if "postgresql+psycopg://" not in db_uri:
+        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg://", 1)
+
     return SQLDatabase.from_uri(db_uri)
