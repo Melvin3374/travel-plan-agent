@@ -5,7 +5,7 @@ langchain-community # Outils et intégrations communautaires
 langchain-google-genai # Connexion spécifique à l'API Google Gemini
 
 # ---- Base de données ----
-psycopg2-binary   # Le "pilote" pour se connecter à PostgreSQL
+psycopg   # Le "pilote" pour se connecter à PostgreSQL
 SQLAlchemy        # Requis par les outils SQL de LangChain
 
 # ---- Authentification ----

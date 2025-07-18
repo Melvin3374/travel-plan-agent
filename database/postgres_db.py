@@ -4,13 +4,13 @@ Gère les tables et les opérations CRUD
 """
 
 import os
-from datetime import datetime
-from typing import List, Dict, Optional
-import psycopg2 # type: ignore
-from psycopg2.extras import RealDictCursor # type: ignore
-from dotenv import load_dotenv
+import json
 from contextlib import contextmanager
-from langchain_community.utilities import SQLDatabase # type: ignore
+import psycopg # <-- CHANGEMENT : On importe le nouveau pilote
+from psycopg2.extras import RealDictCursor # On peut garder ça pour l'instant
+from dotenv import load_dotenv
+from typing import Dict, List, Optional
+from langchain_community.utilities import SQLDatabase
 
 load_dotenv()
 
@@ -19,15 +19,16 @@ class DatabaseManager:
         self.connection_params = {
             "host": os.getenv("POSTGRES_HOST"),
             "port": os.getenv("POSTGRES_PORT"),
-            "database": os.getenv("POSTGRES_DB"),
+            "dbname": os.getenv("POSTGRES_DB"), # psycopg préfère 'dbname' à 'database'
             "user": os.getenv("POSTGRES_USER"),
             "password": os.getenv("POSTGRES_PASSWORD"),
-            "sslmode": "require" # <-- AJOUT CRUCIAL POUR LE DÉPLOIEMENT
+            "sslmode": "require"
         }
     
     @contextmanager
     def get_connection(self):
-        conn = psycopg2.connect(**self.connection_params)
+        # CHANGEMENT : On utilise psycopg.connect
+        conn = psycopg.connect(**self.connection_params) 
         try:
             yield conn
             conn.commit()
@@ -296,6 +297,7 @@ class DatabaseManager:
 # Import json pour la sauvegarde des conversations
 import json
 
+# --- FONCTION POUR LANGCHAIN (MODIFIÉE POUR psycopg) ---
 def get_langchain_db() -> SQLDatabase:
     db_user = os.getenv("POSTGRES_USER")
     db_password = os.getenv("POSTGRES_PASSWORD")
@@ -303,7 +305,7 @@ def get_langchain_db() -> SQLDatabase:
     db_port = os.getenv("POSTGRES_PORT")
     db_name = os.getenv("POSTGRES_DB")
 
-    # On ajoute ?sslmode=require à la fin de l'URL de connexion
-    db_uri = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
+    # On change le pilote dans l'URL de connexion
+    db_uri = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
     
     return SQLDatabase.from_uri(db_uri)
