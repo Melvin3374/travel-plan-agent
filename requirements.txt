@@ -1,21 +1,23 @@
 # ---- Frameworks principaux ----
-streamlit         # Pour l'interface utilisateur
-langchain         # Librairie principale pour l'orchestration IA
-langchain-community # Outils et intégrations communautaires
-langchain-google-genai # Connexion spécifique à l'API Google Gemini
+streamlit
+langchain
+langchain-community
+langchain-google-genai
 
 # ---- Base de données ----
-psycopg-binary   # Le "pilote" pour se connecter à PostgreSQL
-SQLAlchemy        # Requis par les outils SQL de LangChain
+psycopg-binary
+SQLAlchemy
 
 # ---- Authentification ----
-firebase-admin    # Pour gérer les utilisateurs côté serveur
-pyrebase4         # Pour simplifier la connexion utilisateur (login)
-urllib3==1.26.15
-requests-toolbelt==0.9.1
+firebase-admin
+pyrebase4
 
 # ---- Outils de l'agent ----
-duckduckgo-search # Pour la recherche web
+duckduckgo-search
 
 # ---- Utilitaires ----
-python-dotenv     # Pour charger les secrets depuis le fichier .env
+python-dotenv
+
+# ---- Verrouillage de versions pour compatibilité ----
+urllib3==1.26.15
+requests-toolbelt==0.9.1
