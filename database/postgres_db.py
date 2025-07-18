@@ -1,320 +1,84 @@
-"""
-Gestionnaire de base de données PostgreSQL
-Gère les tables et les opérations CRUD
-"""
-
-# Fichier : database/postgres_db.py (Version finale et stable avec psycopg2)
+# Fichier : database/postgres_db.py (Version finale et unifiée)
 
 import os
 import json
+from contextlib import contextmanager
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from langchain_community.utilities import SQLDatabase
-from typing import Dict
-import psycopg2 # <-- On réimporte psycopg2
-from psycopg2.extras import RealDictCursor
-from contextlib import contextmanager
 from typing import Dict, List, Optional
-
 
 load_dotenv()
 
-def get_langchain_db() -> SQLDatabase:
+def get_db_connection():
     """
-    Crée la connexion à la base de données en lisant l'URL complète
-    depuis les variables d'environnement.
+    Fonction utilitaire pour obtenir une connexion à la base de données
+    en utilisant la variable d'environnement DATABASE_URL.
     """
     db_uri = os.getenv("DATABASE_URL")
-    
     if not db_uri:
-        raise ValueError("La variable d'environnement DATABASE_URL n'est pas définie !")
-    
-    # S'assurer que le mode SSL est bien requis
+        raise ValueError("DATABASE_URL n'est pas définie dans le fichier .env")
     if "?sslmode" not in db_uri:
         db_uri += "?sslmode=require"
+    return psycopg2.connect(db_uri)
 
-    # On utilise le préfixe pour psycopg2
+def get_info_for_city(city_name: str) -> str:
+    """
+    Récupère toutes les informations pour une ville donnée.
+    """
+    destination_id = None
+    details = {}
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # 1. Trouver l'ID de la destination
+                cur.execute("SELECT id FROM destinations WHERE city ILIKE %s", (city_name,))
+                result = cur.fetchone()
+                if result:
+                    destination_id = result['id']
+                else:
+                    return f"Je n'ai trouvé aucune information pour la ville de {city_name} dans la base de données."
+
+                # 2. Récupérer tous les détails
+                cur.execute("SELECT * FROM destinations WHERE id = %s;", (destination_id,))
+                details['destination'] = cur.fetchone()
+                cur.execute("SELECT * FROM accommodations WHERE destination_id = %s;", (destination_id,))
+                details['accommodations'] = cur.fetchall()
+                cur.execute("SELECT * FROM activities WHERE destination_id = %s;", (destination_id,))
+                details['activities'] = cur.fetchall()
+
+    except Exception as e:
+        print(f"Erreur lors de la connexion ou de la requête à la base de données : {e}")
+        return "Erreur lors de la récupération des informations de la base de données."
+
+    # 3. Formater le résultat pour l'IA
+    output = f"Voici les informations trouvées pour {city_name}:\n"
+    if details.get('destination'):
+        output += f"- Description: {details['destination'].get('description', 'N/A')}\n"
+        output += f"- Vaccins: {details['destination'].get('vaccinations', 'N/A')}\n"
+    
+    if details.get('accommodations'):
+        output += "\nHébergements:\n"
+        for acc in details['accommodations']:
+            output += f"  - {acc.get('name')} ({acc.get('type')}), Prix: {acc.get('average_price_per_night')}€, Note: {acc.get('rating')}\n"
+            
+    if details.get('activities'):
+        output += "\nActivités:\n"
+        for act in details['activities']:
+            output += f"  - {act.get('name')} ({act.get('category')})\n"
+            
+    return output
+
+# La fonction get_langchain_db est conservée pour la compatibilité future
+# mais n'est plus utilisée par l'agent actuel.
+def get_langchain_db() -> SQLDatabase:
+    db_uri = os.getenv("DATABASE_URL")
+    if not db_uri:
+        raise ValueError("DATABASE_URL n'est pas définie !")
+    if "?sslmode" not in db_uri:
+        db_uri += "?sslmode=require"
     if "postgresql+psycopg2://" not in db_uri:
         db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
-
     return SQLDatabase.from_uri(db_uri)
-
-# La classe DatabaseManager est laissée ici pour la compatibilité
-# de votre script local insert_initial_data.py
-class DatabaseManager:
-    def __init__(self):
-        self.connection_params = {
-            "host": os.getenv("POSTGRES_HOST"),
-            "port": os.getenv("POSTGRES_PORT"),
-            "database": os.getenv("POSTGRES_DB"), # <-- CHANGEMENT ICI (dbname -> database)
-            "user": os.getenv("POSTGRES_USER"),
-            "password": os.getenv("POSTGRES_PASSWORD"),
-            "sslmode": "require"
-        }
-    
-    @contextmanager
-    def get_connection(self):
-        conn = psycopg2.connect(**self.connection_params)
-        try:
-            yield conn
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            conn.close()
-    
-    def insert_activity(self, activity_data: Dict) -> int:
-        """Insère une nouvelle activité"""
-        query = """
-        INSERT INTO activities
-        (destination_id, name, category, description, duration_hours, price, booking_required, best_time)
-        VALUES (%(destination_id)s, %(name)s, %(category)s, %(description)s, %(duration_hours)s, %(price)s, %(booking_required)s, %(best_time)s)
-        RETURNING id;
-        """
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, activity_data)
-                return cur.fetchone()[0]
-        
-    def create_tables(self):
-        """Crée toutes les tables nécessaires"""
-        
-        queries = [
-            # Table des destinations
-            """
-            CREATE TABLE IF NOT EXISTS destinations (
-                id SERIAL PRIMARY KEY,
-                country VARCHAR(100) NOT NULL,
-                city VARCHAR(100) NOT NULL,
-                description TEXT,
-                best_time_to_visit VARCHAR(50),
-                average_budget_per_day INTEGER,
-                visa_required BOOLEAN DEFAULT FALSE,
-                visa_info TEXT,
-                vaccinations TEXT,
-                safety_rating INTEGER CHECK (safety_rating >= 1 AND safety_rating <= 5),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Table des hébergements
-            """
-            CREATE TABLE IF NOT EXISTS accommodations (
-                id SERIAL PRIMARY KEY,
-                destination_id INTEGER REFERENCES destinations(id),
-                name VARCHAR(200) NOT NULL,
-                type VARCHAR(50) NOT NULL, -- hotel, hostel, airbnb, camping
-                price_range VARCHAR(20), -- €, €€, €€€, €€€€
-                average_price_per_night DECIMAL(10, 2),
-                rating DECIMAL(3, 2),
-                amenities TEXT[],
-                address TEXT,
-                booking_url TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Table des activités
-            """
-            CREATE TABLE IF NOT EXISTS activities (
-                id SERIAL PRIMARY KEY,
-                destination_id INTEGER REFERENCES destinations(id),
-                name VARCHAR(200) NOT NULL,
-                category VARCHAR(50), -- culture, nature, sport, food, nightlife
-                description TEXT,
-                duration_hours DECIMAL(4, 2),
-                price DECIMAL(10, 2),
-                booking_required BOOLEAN DEFAULT FALSE,
-                best_time VARCHAR(50),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Table des utilisateurs (basique pour le moment)
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                email VARCHAR(200) UNIQUE NOT NULL,
-                travel_style VARCHAR(50),
-                preferred_budget_range VARCHAR(20),
-                interests TEXT[],
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Table des conversations
-            """
-            CREATE TABLE IF NOT EXISTS conversations (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                session_id VARCHAR(100) NOT NULL,
-                user_message TEXT NOT NULL,
-                assistant_response TEXT NOT NULL,
-                context JSONB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Table des itinéraires sauvegardés
-            """
-            CREATE TABLE IF NOT EXISTS saved_itineraries (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                title VARCHAR(200) NOT NULL,
-                destination VARCHAR(200) NOT NULL,
-                duration_days INTEGER,
-                total_budget DECIMAL(10, 2),
-                itinerary_data JSONB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Index pour améliorer les performances
-            """
-            CREATE INDEX IF NOT EXISTS idx_destinations_country ON destinations(country);
-            CREATE INDEX IF NOT EXISTS idx_destinations_city ON destinations(city);
-            CREATE INDEX IF NOT EXISTS idx_activities_category ON activities(category);
-            CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
-            CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
-            """
-        ]
-        
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                for query in queries:
-                    cur.execute(query)
-                print("✅ Toutes les tables ont été créées avec succès !")
-    
-    def insert_destination(self, destination_data: Dict) -> int:
-        """Insère une nouvelle destination"""
-        
-        query = """
-        INSERT INTO destinations 
-        (country, city, description, best_time_to_visit, average_budget_per_day, 
-         visa_required, visa_info, vaccinations, safety_rating)
-        VALUES (%(country)s, %(city)s, %(description)s, %(best_time_to_visit)s, 
-                %(average_budget_per_day)s, %(visa_required)s, %(visa_info)s, 
-                %(vaccinations)s, %(safety_rating)s)
-        RETURNING id;
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, destination_data)
-                return cur.fetchone()[0]
-    
-    def insert_accommodation(self, accommodation_data: Dict) -> int:
-        """Insère un nouvel hébergement"""
-        
-        query = """
-        INSERT INTO accommodations 
-        (destination_id, name, type, price_range, average_price_per_night, 
-         rating, amenities, address, booking_url)
-        VALUES (%(destination_id)s, %(name)s, %(type)s, %(price_range)s, 
-                %(average_price_per_night)s, %(rating)s, %(amenities)s, 
-                %(address)s, %(booking_url)s)
-        RETURNING id;
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, accommodation_data)
-                return cur.fetchone()[0]
-    
-    def save_conversation(self, session_id: str, user_message: str, 
-                         assistant_response: str, user_id: Optional[int] = None,
-                         context: Optional[Dict] = None):
-        """Sauvegarde une conversation"""
-        
-        query = """
-        INSERT INTO conversations 
-        (user_id, session_id, user_message, assistant_response, context)
-        VALUES (%s, %s, %s, %s, %s::jsonb);
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, (
-                    user_id, 
-                    session_id, 
-                    user_message, 
-                    assistant_response,
-                    json.dumps(context) if context else None
-                ))
-    
-    def search_destinations(self, query: str) -> List[Dict]:
-        """Recherche des destinations"""
-        
-        sql = """
-        SELECT * FROM destinations 
-        WHERE country ILIKE %s OR city ILIKE %s
-        ORDER BY country, city
-        LIMIT 10;
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                search_pattern = f"%{query}%"
-                cur.execute(sql, (search_pattern, search_pattern))
-                return cur.fetchall()
-    
-    def get_destination_details(self, destination_id: int) -> Dict:
-        """Récupère tous les détails d'une destination"""
-        
-        # Récupérer la destination
-        dest_query = "SELECT * FROM destinations WHERE id = %s;"
-        
-        # Récupérer les hébergements
-        acc_query = """
-        SELECT * FROM accommodations 
-        WHERE destination_id = %s 
-        ORDER BY rating DESC NULLS LAST;
-        """
-        
-        # Récupérer les activités
-        act_query = """
-        SELECT * FROM activities 
-        WHERE destination_id = %s 
-        ORDER BY category, price;
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Destination
-                cur.execute(dest_query, (destination_id,))
-                destination = cur.fetchone()
-                
-                if not destination:
-                    return {}
-                
-                # Hébergements
-                cur.execute(acc_query, (destination_id,))
-                accommodations = cur.fetchall()
-                
-                # Activités
-                cur.execute(act_query, (destination_id,))
-                activities = cur.fetchall()
-                
-                return {
-                    "destination": destination,
-                    "accommodations": accommodations,
-                    "activities": activities
-                }
-    
-    def get_conversation_history(self, session_id: str, limit: int = 10) -> List[Dict]:
-        """Récupère l'historique d'une conversation"""
-        
-        query = """
-        SELECT user_message, assistant_response, created_at 
-        FROM conversations 
-        WHERE session_id = %s 
-        ORDER BY created_at DESC 
-        LIMIT %s;
-        """
-        
-        with self.get_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, (session_id, limit))
-                return cur.fetchall()[::-1]  # Inverser pour ordre chronologique

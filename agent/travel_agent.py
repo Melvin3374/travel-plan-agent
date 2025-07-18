@@ -1,63 +1,66 @@
-# Fichier : agent/travel_agent.py (Correction de la faute de frappe)
+# Fichier : agent/travel_agent.py (Version finale avec outil personnalisé)
 
 import os
 from dotenv import load_dotenv
 
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.tools import tool # Important : pour créer notre outil
 
-from database.postgres_db import get_langchain_db
+# On importe notre nouvelle fonction "couteau suisse"
+from database.postgres_db import get_info_for_city
 
-# 1. Initialisations
+# 1. Création de notre outil personnalisé
+@tool
+def travel_database_tool(city: str) -> str:
+    """
+    Utilise cet outil pour obtenir toutes les informations sur une ville,
+    y compris les descriptions, vaccins, hôtels et activités.
+    L'entrée doit être uniquement le nom de la ville.
+    """
+    return get_info_for_city(city)
+
+# 2. Initialisations
 load_dotenv()
-# --- CORRECTION DE LA FAUTE DE FRAPPE ICI ---
 llm = ChatGoogleGenerativeAI(
     model="gemini-1.5-pro-latest",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0,
     convert_system_message_to_human=True
 )
-db = get_langchain_db()
 
-# 2. Création des outils
-toolkit = SQLDatabaseToolkit(db=db, llm=llm)
-db_tools = toolkit.get_tools()
+# 3. Création de la liste d'outils
 search_tool = DuckDuckGoSearchRun(name="internet_search")
-tools = db_tools + [search_tool]
+tools = [travel_database_tool, search_tool] # Notre outil + la recherche web
 
-# 3. LE PROMPT FINAL BASÉ SUR LE STANDARD LANGCHAIN
+# 4. Le Prompt final, simplifié
 template = """
-Tu es un assistant de voyage IA qui répond en français. Tu as accès aux outils suivants :
+Tu es un assistant de voyage IA. Réponds en français. Tu as accès aux outils suivants :
 
 {tools}
 
 Utilise le format suivant :
-
-Question: la question initiale de l'utilisateur à laquelle tu dois répondre
-Thought: tu dois toujours réfléchir à ce que tu vas faire
+Question: la question de l'utilisateur
+Thought: tu dois réfléchir à ce que tu vas faire
 Action: l'action à entreprendre, doit être l'un des outils suivants [{tool_names}]
 Action Input: l'entrée pour l'action
 Observation: le résultat de l'action
-... (ce cycle Thought/Action/Action Input/Observation peut se répéter)
-
+... (ce cycle peut se répéter)
 Thought: Je connais maintenant la réponse finale
-Final Answer: la réponse finale à la question initiale de l'utilisateur
+Final Answer: la réponse finale à la question
 
-Instructions importantes :
-1. Pour les questions sur les voyages, consulte TOUJOURS la base de données en premier avec les outils `sql_db_...`.
-2. Si un outil `sql_db_query` renvoie un résultat vide (comme `[]`), cela signifie que l'information n'est pas dans la base de données. Dans ce cas, tu dois immédiatement passer à l'outil `internet_search`. Ne relance jamais la même requête SQL.
+Instructions :
+1. Pour toute question sur une ville, utilise TOUJOURS l'outil `travel_database_tool` en premier.
+2. Si cet outil ne renvoie rien d'utile, utilise `internet_search`.
 
 Commençons !
 
-Historique de la conversation :
-{chat_history}
-
+Historique : {chat_history}
 Question: {input}
-{agent_scratchpad}
+Scratchpad : {agent_scratchpad}
 """
 
 prompt = PromptTemplate.from_template(template)
@@ -70,7 +73,7 @@ agent_executor = AgentExecutor(
     tools=tools,
     memory=memory,
     verbose=True,
-    max_iterations=8,
+    max_iterations=6,
     handle_parsing_errors=True
 )
 
@@ -80,4 +83,4 @@ def get_response(user_input: str) -> str:
         return response.get("output", "Désolé, une erreur est survenue.")
     except Exception as e:
         print(f"Erreur dans l'AgentExecutor : {e}")
-        return "Je suis désolé, je rencontre une difficulté technique pour traiter votre demande. Pourriez-vous essayer de reformuler ?"
+        return "Je suis désolé, je rencontre une difficulté technique. Pourriez-vous reformuler ?"
