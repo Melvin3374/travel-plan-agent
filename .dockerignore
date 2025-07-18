@@ -12,3 +12,4 @@ node_modules/ # Si vous avez des dépendances JS
 data/ # Si vous avez un dossier de données volumineux qui n'a pas besoin d'être dans l'image
 .pytest_cache/
 .vscode/
+firebase-service-account.json

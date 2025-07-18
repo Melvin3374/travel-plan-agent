@@ -3,12 +3,12 @@
 import os
 from dotenv import load_dotenv
 
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import ChatPromptTemplate
+from langchain_community.agent_toolkits import SQLDatabaseToolkit # type: ignore
+from langchain.agents import AgentExecutor, create_react_agent # type: ignore
+from langchain_community.tools import DuckDuckGoSearchRun # type: ignore
+from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore
+from langchain.memory import ConversationBufferMemory # type: ignore
+from langchain.prompts import ChatPromptTemplate # type: ignore
 
 from database.postgres_db import get_langchain_db
 

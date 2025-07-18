@@ -1,27 +1,21 @@
-# Fichier: requirements.txt (version minimale)
-streamlit
-langchain
-langchain-community
-langchain-google-genai
-psycopg2-binary
-SQLAlchemy
-python-dotenv
-# python-multipart
-# google-generativeai
-# pydantic
-# firebase-admin
+# ---- Frameworks principaux ----
+streamlit         # Pour l'interface utilisateur
+langchain         # Librairie principale pour l'orchestration IA
+langchain-community # Outils et intégrations communautaires
+langchain-google-genai # Connexion spécifique à l'API Google Gemini
 
-# chromadb
-# faiss-cpu
-# PyPDF2
-# pypdf
-# tiktoken
-# huggingface-hub
-# transformers
-duckduckgo-search
-# pytest
-# langchain_huggingface
-# fastapi 
-# uvicorn
-# requests
-# sentence-transformers
+# ---- Base de données ----
+psycopg2-binary   # Le "pilote" pour se connecter à PostgreSQL
+SQLAlchemy        # Requis par les outils SQL de LangChain
+
+# ---- Authentification ----
+firebase-admin    # Pour gérer les utilisateurs côté serveur
+pyrebase4         # Pour simplifier la connexion utilisateur (login)
+urllib3==1.26.15
+requests-toolbelt==0.9.1
+
+# ---- Outils de l'agent ----
+duckduckgo-search # Pour la recherche web
+
+# ---- Utilitaires ----
+python-dotenv     # Pour charger les secrets depuis le fichier .env
