@@ -294,10 +294,8 @@ class DatabaseManager:
                 cur.execute(query, (session_id, limit))
                 return cur.fetchall()[::-1]  # Inverser pour ordre chronologique
 
-# Import json pour la sauvegarde des conversations
-import json
 
-# --- FONCTION POUR LANGCHAIN (MODIFIÉE POUR psycopg) ---
+
 def get_langchain_db() -> SQLDatabase:
     """
     Crée la connexion à la base de données en lisant l'URL complète
@@ -312,9 +310,13 @@ def get_langchain_db() -> SQLDatabase:
     if "?sslmode" not in db_uri:
         db_uri += "?sslmode=require"
 
-    # Remplacer le préfixe pour SQLAlchemy
-    # psycopg (le nouveau pilote) n'a pas besoin de +psycopg
-    if "postgresql+psycopg://" not in db_uri:
-        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Remplacer le préfixe pour SQLAlchemy (psycopg2)
+    if "postgresql+psycopg2://" not in db_uri:
+        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
 
     return SQLDatabase.from_uri(db_uri)
+
+# Note : La classe DatabaseManager n'est plus utilisée par l'application déployée,
+# mais uniquement par votre script local insert_initial_data.py.
+# Pour qu'elle fonctionne à nouveau en local, il faudrait la remettre à jour
+# pour qu'elle utilise psycopg2, mais ce n'est pas nécessaire pour le déploiement.

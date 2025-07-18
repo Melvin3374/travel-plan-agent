@@ -2,7 +2,7 @@ streamlit
 langchain
 langchain-community
 langchain-google-genai
-psycopg-binary
+psycopg2-binary
 SQLAlchemy
 firebase-admin
 pyrebase4
