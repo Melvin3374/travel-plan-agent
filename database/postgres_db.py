@@ -15,21 +15,18 @@ from langchain_community.utilities import SQLDatabase # type: ignore
 load_dotenv()
 
 class DatabaseManager:
-    """Gestionnaire pour la base de données PostgreSQL"""
-    
     def __init__(self):
-        """Initialise la connexion à la base de données"""
         self.connection_params = {
-            "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "port": os.getenv("POSTGRES_PORT", "5432"),
-            "database": os.getenv("POSTGRES_DB", "travel_assistant"),
-            "user": os.getenv("POSTGRES_USER", "travel_user"),
-            "password": os.getenv("POSTGRES_PASSWORD", "")
+            "host": os.getenv("POSTGRES_HOST"),
+            "port": os.getenv("POSTGRES_PORT"),
+            "database": os.getenv("POSTGRES_DB"),
+            "user": os.getenv("POSTGRES_USER"),
+            "password": os.getenv("POSTGRES_PASSWORD"),
+            "sslmode": "require" # <-- AJOUT CRUCIAL POUR LE DÉPLOIEMENT
         }
     
     @contextmanager
     def get_connection(self):
-        """Context manager pour gérer les connexions à la base de données"""
         conn = psycopg2.connect(**self.connection_params)
         try:
             yield conn
@@ -300,19 +297,13 @@ class DatabaseManager:
 import json
 
 def get_langchain_db() -> SQLDatabase:
-    """
-    Crée et retourne une connexion à la base de données compatible avec LangChain.
-    Utilisée par l'agent IA pour interroger la BDD en langage naturel.
-    """
     db_user = os.getenv("POSTGRES_USER")
     db_password = os.getenv("POSTGRES_PASSWORD")
-    # Important: Utiliser le nom du service Docker comme host, pas "localhost".
-    db_host = os.getenv("POSTGRES_HOST", "db") 
-    db_port = os.getenv("POSTGRES_PORT", "5432")
+    db_host = os.getenv("POSTGRES_HOST")
+    db_port = os.getenv("POSTGRES_PORT")
     db_name = os.getenv("POSTGRES_DB")
 
-    # Format de l'URI pour SQLAlchemy, utilisé par LangChain
-    db_uri = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    # On ajoute ?sslmode=require à la fin de l'URL de connexion
+    db_uri = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
     
-    # Création de l'objet SQLDatabase que l'agent LangChain pourra utiliser
     return SQLDatabase.from_uri(db_uri)
