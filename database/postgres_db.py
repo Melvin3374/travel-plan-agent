@@ -3,23 +3,49 @@ Gestionnaire de base de données PostgreSQL
 Gère les tables et les opérations CRUD
 """
 
+# Fichier : database/postgres_db.py (Version finale et stable avec psycopg2)
+
 import os
 import json
-from contextlib import contextmanager
-import psycopg # <-- CHANGEMENT : On importe le nouveau pilote
-from psycopg2.extras import RealDictCursor # On peut garder ça pour l'instant
 from dotenv import load_dotenv
-from typing import Dict, List, Optional
 from langchain_community.utilities import SQLDatabase
+from typing import Dict
+import psycopg2 # <-- On réimporte psycopg2
+from psycopg2.extras import RealDictCursor
+from contextlib import contextmanager
+from typing import Dict, List, Optional
+
 
 load_dotenv()
 
+def get_langchain_db() -> SQLDatabase:
+    """
+    Crée la connexion à la base de données en lisant l'URL complète
+    depuis les variables d'environnement.
+    """
+    db_uri = os.getenv("DATABASE_URL")
+    
+    if not db_uri:
+        raise ValueError("La variable d'environnement DATABASE_URL n'est pas définie !")
+    
+    # S'assurer que le mode SSL est bien requis
+    if "?sslmode" not in db_uri:
+        db_uri += "?sslmode=require"
+
+    # On utilise le préfixe pour psycopg2
+    if "postgresql+psycopg2://" not in db_uri:
+        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    return SQLDatabase.from_uri(db_uri)
+
+# La classe DatabaseManager est laissée ici pour la compatibilité
+# de votre script local insert_initial_data.py
 class DatabaseManager:
     def __init__(self):
         self.connection_params = {
             "host": os.getenv("POSTGRES_HOST"),
             "port": os.getenv("POSTGRES_PORT"),
-            "dbname": os.getenv("POSTGRES_DB"), # psycopg préfère 'dbname' à 'database'
+            "database": os.getenv("POSTGRES_DB"), # <-- CHANGEMENT ICI (dbname -> database)
             "user": os.getenv("POSTGRES_USER"),
             "password": os.getenv("POSTGRES_PASSWORD"),
             "sslmode": "require"
@@ -27,8 +53,7 @@ class DatabaseManager:
     
     @contextmanager
     def get_connection(self):
-        # CHANGEMENT : On utilise psycopg.connect
-        conn = psycopg.connect(**self.connection_params) 
+        conn = psycopg2.connect(**self.connection_params)
         try:
             yield conn
             conn.commit()
@@ -293,30 +318,3 @@ class DatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, (session_id, limit))
                 return cur.fetchall()[::-1]  # Inverser pour ordre chronologique
-
-
-
-def get_langchain_db() -> SQLDatabase:
-    """
-    Crée la connexion à la base de données en lisant l'URL complète
-    depuis les variables d'environnement.
-    """
-    db_uri = os.getenv("DATABASE_URL")
-    
-    if not db_uri:
-        raise ValueError("La variable d'environnement DATABASE_URL n'est pas définie !")
-    
-    # S'assurer que le mode SSL est bien requis
-    if "?sslmode" not in db_uri:
-        db_uri += "?sslmode=require"
-
-    # Remplacer le préfixe pour SQLAlchemy (psycopg2)
-    if "postgresql+psycopg2://" not in db_uri:
-        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
-
-    return SQLDatabase.from_uri(db_uri)
-
-# Note : La classe DatabaseManager n'est plus utilisée par l'application déployée,
-# mais uniquement par votre script local insert_initial_data.py.
-# Pour qu'elle fonctionne à nouveau en local, il faudrait la remettre à jour
-# pour qu'elle utilise psycopg2, mais ce n'est pas nécessaire pour le déploiement.
