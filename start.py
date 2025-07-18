@@ -18,8 +18,8 @@ def check_requirements():
     
     try:
         import streamlit
-        import langchain
-        import google.generativeai
+        import langchain # type: ignore
+        import google.generativeai # type: ignore
         print("✅ Toutes les dépendances principales sont installées")
     except ImportError as e:
         print(f"❌ Dépendance manquante : {e}")

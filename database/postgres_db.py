@@ -6,11 +6,11 @@ Gère les tables et les opérations CRUD
 import os
 from datetime import datetime
 from typing import List, Dict, Optional
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg2 # type: ignore
+from psycopg2.extras import RealDictCursor # type: ignore
 from dotenv import load_dotenv
 from contextlib import contextmanager
-from langchain_community.utilities import SQLDatabase
+from langchain_community.utilities import SQLDatabase # type: ignore
 
 load_dotenv()
 
