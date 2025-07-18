@@ -1,23 +1,12 @@
-# ---- Frameworks principaux ----
 streamlit
 langchain
 langchain-community
 langchain-google-genai
-
-# ---- Base de données ----
 psycopg-binary
 SQLAlchemy
-
-# ---- Authentification ----
 firebase-admin
 pyrebase4
-
-# ---- Outils de l'agent ----
 duckduckgo-search
-
-# ---- Utilitaires ----
 python-dotenv
-
-# ---- Verrouillage de versions pour compatibilité ----
 urllib3==1.26.15
 requests-toolbelt==0.9.1
