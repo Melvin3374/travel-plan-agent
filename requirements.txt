@@ -1,3 +1,4 @@
+# Version finale pour déploiement
 # ---- Frameworks principaux ----
 streamlit
 langchain
