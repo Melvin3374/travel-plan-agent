@@ -2,6 +2,23 @@
 
 import streamlit as st
 import os
+# --- BLOC DE DÉBOGAGE À AJOUTER ---
+st.title("🕵️‍♂️ Vérification des Secrets de la Base de Données")
+
+st.write("---")
+st.write("Host lu par l'application :", os.getenv("POSTGRES_HOST"))
+st.write("User lu par l'application :", os.getenv("POSTGRES_USER"))
+st.write("Port lu par l'application :", os.getenv("POSTGRES_PORT"))
+st.write("DB Name lu par l'application :", os.getenv("POSTGRES_DB"))
+
+# On vérifie la présence du mot de passe sans jamais l'afficher
+password = os.getenv("POSTGRES_PASSWORD")
+if password:
+    st.success(f"✅ Mot de passe trouvé ! (longueur: {len(password)} caractères)")
+else:
+    st.error("❌ Mot de passe NON trouvé !")
+st.write("---")
+# --- FIN DU BLOC DE DÉBOGAGE ---
 from dotenv import load_dotenv
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -9,6 +26,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # On importe les nouvelles fonctions d'authentification et l'agent
 from agent.travel_agent import get_response
 from auth.firebase_auth import signup_user, login_user
+
 
 # Charger les variables d'environnement
 load_dotenv()
